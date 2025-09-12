@@ -1,0 +1,29 @@
+{
+  "name": "sus-agenda-back",
+  "version": "1.0.0",
+  "description": "1. **SQL Server** instalado e rodando 2. **SQL Server Management Studio (SSMS)** ou **Azure Data Studio** 3. **Node.js** versão 16 ou superior",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brunolibardoni/SUS-Agenda-Back.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/brunolibardoni/SUS-Agenda-Back/issues"
+  },
+  "type": "module",
+  "homepage": "https://github.com/brunolibardoni/SUS-Agenda-Back#readme",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "mssql": "^11.0.1"
+  }
+}
