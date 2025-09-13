@@ -16,7 +16,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-app.use('/api', apiRoutes);
+app.use('/', apiRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -37,7 +37,7 @@ app.use((req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+  console.log(`🔗 API Base URL: http://localhost:${PORT}`);
 });
 
 export default app;
