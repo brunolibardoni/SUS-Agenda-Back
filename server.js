@@ -20,7 +20,7 @@ app.use('/', apiRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', message: 'SaudeAgenda API is running' });
+  res.json({ status: 'OK', message: 'SUS Agenda API is running' });
 });
 
 // Error handling middleware
