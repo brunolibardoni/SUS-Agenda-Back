@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import { sql, getPool } from '../config/database.js';
 
 // Sessões em memória (pode ser trocado por Redis ou banco)
-const sessions = new Map();
+export const sessions = new Map();
 
 // Proteção contra brute force: tentativas por email e IP usando SQL Server
 const MAX_ATTEMPTS = 5;
@@ -30,7 +30,7 @@ export async function login(req, res) {
 
     const result = await pool.request()
       .input('email', sql.NVarChar, email)
-      .query('SELECT u.Id, u.Name, u.Email, u.PasswordHash, u.Role, u.isDeveloper, c.Name AS City, c.Id AS CityId, u.CPF, u.Gender, u.Age, u.Phone, u.Address, CONVERT(varchar(10),u.BirthDate, 103) AS BirthDate FROM Users u INNER JOIN Cities c ON u.City = c.Id WHERE Email = @email');
+      .query('SELECT u.Id, u.Name, u.Email, u.PasswordHash, u.Role, u.isDeveloper, ISNULL(c.Name, u.City) AS City, ISNULL(c.Id, u.City) AS CityId, u.CPF, u.Gender, u.Age, u.Phone, u.Address, CONVERT(varchar(10),u.BirthDate, 103) AS BirthDate FROM Users u LEFT JOIN Cities c ON TRY_CAST(u.City AS uniqueidentifier) = c.Id WHERE Email = @email');
 
     if (result.recordset.length === 0) {
       // Falha: incrementa tentativas
@@ -60,11 +60,23 @@ export async function login(req, res) {
       maxAge: 1000 * 60 * 60 * 24 // 1 dia
     });
 
-    // Calcular Idade
+    // Calcular Idade e formatar data
     function calcularIdadeBR(dataBR) {
       if (!dataBR) return '-';
-      const [dia, mes, ano] = dataBR.split('/');
-      const nascimento = new Date(ano, mes - 1, dia);
+      
+      let nascimento;
+      
+      // Verifica se a data está no formato YYYY-MM-DD ou DD/MM/YYYY
+      if (dataBR.includes('-')) {
+        // Formato YYYY-MM-DD
+        const [ano, mes, dia] = dataBR.split('-');
+        nascimento = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+      } else {
+        // Formato DD/MM/YYYY
+        const [dia, mes, ano] = dataBR.split('/');
+        nascimento = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+      }
+      
       const hoje = new Date();
       let idade = hoje.getFullYear() - nascimento.getFullYear();
       const aniversarioPassou =
@@ -73,12 +85,44 @@ export async function login(req, res) {
       if (!aniversarioPassou) idade--;
       return isNaN(idade) ? '-' : idade;
     }
+    
+    function formatarDataBR(data) {
+      if (!data) return '';
+      
+      let dateObj;
+      
+      // Verifica se já é um objeto Date
+      if (data instanceof Date) {
+        dateObj = data;
+      } else if (typeof data === 'string') {
+        // Verifica se a data está no formato YYYY-MM-DD
+        if (data.includes('-') && data.split('-').length === 3) {
+          const [ano, mes, dia] = data.split('-');
+          dateObj = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+        } else {
+          // Assume formato DD/MM/YYYY
+          const [dia, mes, ano] = data.split('/');
+          dateObj = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+        }
+      } else {
+        return '';
+      }
+      
+      // Formatar como DD/MM/YYYY
+      const dia = dateObj.getDate().toString().padStart(2, '0');
+      const mes = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+      const ano = dateObj.getFullYear();
+      
+      return `${dia}/${mes}/${ano}`;
+    }
+    
     const age = calcularIdadeBR(user.BirthDate);
+    const formattedBirthDate = formatarDataBR(user.BirthDate);
 
     res.json({ user: { id: user.Id, name: user.Name, email: user.Email, 
       role: user.Role, isDeveloper: user.isDeveloper, city: user.City, 
       cityId: user.CityId, cpf: user.CPF, gender: user.Gender, age: age, phone: user.Phone, 
-      address: user.Address, birthDate: user.BirthDate 
+      address: user.Address, birthDate: formattedBirthDate 
     } });
   } catch (error) {
     console.error('Erro no login:', error);
@@ -121,20 +165,104 @@ async function updateLoginAttemptsDb(pool, email, ip, now) {
 }
 
 
-export function sessionMiddleware(req, res, next) {
-  const sessionId = req.cookies.sessionId;
-  if (!sessionId || !sessions.has(sessionId)) {
-    return res.status(401).json({ error: 'Sessão inválida ou expirada.' });
+export async function getCurrentUser(req) {
+  // First check Passport authentication (for OAuth users)
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    return req.user;
   }
-  req.userId = sessions.get(sessionId).userId;
-  next();
+
+  // Then check custom session (for regular login users)
+  const sessionId = req.cookies?.sessionId;
+  if (!sessionId) {
+    return null;
+  }
+
+  const session = sessions.get(sessionId);
+  if (!session) {
+    return null;
+  }
+
+  // Get user data from database
+  try {
+    const pool = await getPool();
+    const result = await pool.request()
+      .input('userId', sql.UniqueIdentifier, session.userId)
+      .query(`
+        SELECT u.Id, u.Name, u.Email, u.CPF, u.Phone, CONVERT(varchar(10),u.BirthDate, 103) AS BirthDate,
+               u.Age, u.Gender, u.City, u.Address, u.Role, u.isDeveloper, u.AuthProvider,
+               ISNULL(c.Name, u.City) AS CityName
+        FROM Users u
+        LEFT JOIN Cities c ON TRY_CAST(u.City AS uniqueidentifier) = c.Id
+        WHERE u.Id = @userId
+      `);
+
+    if (result.recordset.length === 0) {
+      return null;
+    }
+
+    const user = result.recordset[0];
+
+    // Format user data consistently
+    return {
+      id: user.Id,
+      name: user.Name,
+      email: user.Email,
+      cpf: user.CPF,
+      phone: user.Phone,
+      birthDate: user.BirthDate,
+      age: user.Age,
+      gender: user.Gender,
+      city: user.CityName || user.City,
+      cityId: user.City,
+      address: user.Address,
+      role: user.Role,
+      isDeveloper: user.isDeveloper,
+      authProvider: user.AuthProvider || 'local'
+    };
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    return null;
+  }
 }
 
 export function logout(req, res) {
-  const sessionId = req.cookies.sessionId;
-  if (sessionId) {
-    sessions.delete(sessionId);
-    res.clearCookie('sessionId');
+  try {
+    // Clear traditional session
+    const sessionId = req.cookies?.sessionId;
+    if (sessionId) {
+      sessions.delete(sessionId);
+      res.clearCookie('sessionId');
+    }
+
+    // Clear Passport session and destroy Express session
+    req.logout((err) => {
+      if (err) {
+        console.error('Error during Passport logout:', err);
+      }
+
+      // Destroy the Express session completely if it exists
+      if (req.session) {
+        req.session.destroy((sessionErr) => {
+          if (sessionErr) {
+            console.error('Error destroying session:', sessionErr);
+          }
+
+          // Clear all session-related cookies
+          res.clearCookie('connect.sid'); // Express session cookie
+          res.clearCookie('sessionId'); // Custom session cookie
+
+          res.json({ message: 'Logout realizado com sucesso.' });
+        });
+      } else {
+        // Clear all session-related cookies
+        res.clearCookie('connect.sid'); // Express session cookie
+        res.clearCookie('sessionId'); // Custom session cookie
+
+        res.json({ message: 'Logout realizado com sucesso.' });
+      }
+    });
+  } catch (error) {
+    console.error('Error during logout:', error);
+    res.status(500).json({ error: 'Erro interno do servidor durante logout.' });
   }
-  res.json({ message: 'Logout realizado com sucesso.' });
 }

@@ -13,7 +13,43 @@ import externalController from '../controllers/externalController.js';
 import notificationController from '../controllers/notificationController.js';
 import { getAvailableSlots } from '../controllers/availableSlotsController.js';
 
-import { login, logout, sessionMiddleware } from '../controllers/sessionController.js';
+import { login, logout, getCurrentUser } from '../controllers/sessionController.js';
+import passport from '../config/passport.js';
+
+// Google OAuth routes
+router.get('/auth/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
+
+router.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  (req, res) => {
+    // Check if user needs profile completion
+    if (req.user && req.user.needsProfileCompletion) {
+      // Redirect to frontend with flag indicating profile completion needed
+      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}?needsProfileCompletion=true`);
+    } else {
+      // Successful authentication, redirect to frontend
+      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
+    }
+  }
+);
+
+// Get current user session
+router.get('/auth/me', async (req, res) => {
+  try {
+    const user = await getCurrentUser(req);
+    if (user) {
+      res.json({ user });
+    } else {
+      res.status(401).json({ error: 'Not authenticated' });
+    }
+  } catch (error) {
+    console.error('Error in /auth/me:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Autenticação
 router.post('/login', login);
 router.post('/logout', logout);
@@ -59,6 +95,11 @@ router.put('/contact/:id', contactController.updateContact);
 
 // Rotas de Usuários
 router.put('/users/:userId/password', userController.updatePassword);
+router.put('/users/complete-profile', (req, res, next) => {
+  if (req.isAuthenticated()) {
+    next();
+  }
+}, userController.completeProfile);
 router.get('/users/:userId/notifications', userController.getUserNotifications);
 router.put('/notifications/:notificationId/read', userController.markNotificationAsRead);
 router.put('/users/:userId/notifications/read-all', userController.markAllNotificationsAsRead);

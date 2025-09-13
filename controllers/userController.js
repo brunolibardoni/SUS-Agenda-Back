@@ -58,13 +58,47 @@ const userController = {
         .input('address', sql.NVarChar, address)
         .input('passwordHash', sql.NVarChar, passwordHash)
         .input('role', sql.NVarChar, role)
+        .input('authProvider', sql.NVarChar, 'local')
         .query(`
-          INSERT INTO Users (Name, Email, CPF, Phone, BirthDate, Age, Gender, City, Address, PasswordHash, Role, CreatedAt, UpdatedAt)
-          VALUES (@name, @email, @cpf, @phone, @birthDate, @age, @gender, @city, @address, @passwordHash, @role, GETDATE(), GETDATE())
-          SELECT u.Id, u.Name, u.Email, u.PasswordHash, u.Role, u.isDeveloper, c.Name AS City, u.CPF, u.Gender, u.Age, u.Phone, u.Address, CONVERT(varchar(10),u.BirthDate, 103) AS BirthDate FROM Users u INNER JOIN Cities c ON u.City = c.Id WHERE Email = @email
+          INSERT INTO Users (Name, Email, CPF, Phone, BirthDate, Age, Gender, City, Address, PasswordHash, Role, AuthProvider, CreatedAt, UpdatedAt)
+          VALUES (@name, @email, @cpf, @phone, @birthDate, @age, @gender, @city, @address, @passwordHash, @role, @authProvider, GETDATE(), GETDATE())
+          SELECT u.Id, u.Name, u.Email, u.PasswordHash, u.Role, u.isDeveloper, ISNULL(c.Name, u.City) AS City, u.CPF, u.Gender, u.Age, u.Phone, u.Address, CONVERT(varchar(10),u.BirthDate, 103) AS BirthDate FROM Users u LEFT JOIN Cities c ON TRY_CAST(u.City AS uniqueidentifier) = c.Id WHERE Email = @email
         `);
           
       const user = insertResult.recordset[0];
+
+      // Formatar data para DD/MM/YYYY
+      function formatarDataBR(data) {
+        if (!data) return '';
+        
+        let dateObj;
+        
+        // Verifica se já é um objeto Date
+        if (data instanceof Date) {
+          dateObj = data;
+        } else if (typeof data === 'string') {
+          // Verifica se a data está no formato YYYY-MM-DD
+          if (data.includes('-') && data.split('-').length === 3) {
+            const [ano, mes, dia] = data.split('-');
+            dateObj = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+          } else {
+            // Assume formato DD/MM/YYYY
+            const [dia, mes, ano] = data.split('/');
+            dateObj = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+          }
+        } else {
+          return '';
+        }
+        
+        // Formatar como DD/MM/YYYY
+        const dia = dateObj.getDate().toString().padStart(2, '0');
+        const mes = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+        const ano = dateObj.getFullYear();
+        
+        return `${dia}/${mes}/${ano}`;
+      }
+      
+      const formattedBirthDate = formatarDataBR(user.BirthDate);
 
       res.status(201).json({
         user: {
@@ -79,7 +113,7 @@ const userController = {
           age: user.Age,
           phone: user.Phone,
           address: user.Address,
-          birthDate: user.BirthDate
+          birthDate: formattedBirthDate
         }
       });
     } catch (error) {
@@ -196,6 +230,156 @@ const userController = {
     } catch (error) {
       console.error('Erro ao marcar notificações:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  },
+
+  // Completar perfil do usuário (para usuários do Google OAuth)
+  async completeProfile(req, res) {
+    try {
+      const userId = req.user.id; // From Passport.js authenticated user
+      const {
+        cpf,
+        phone,
+        birthDate,
+        gender,
+        city,
+        address
+      } = req.body;
+
+      // Validação básica
+      if (!cpf || !phone || !birthDate || !gender || !city || !address) {
+        return res.status(400).json({ error: 'Todos os campos obrigatórios devem ser preenchidos.' });
+      }
+
+      // Validação adicional - garantir que não são valores temporários
+      if (cpf === 'TEMP_CPF' || phone === 'TEMP_PHONE' || city === 'TEMP_CITY' || address === 'TEMP_ADDRESS') {
+        return res.status(400).json({ error: 'Por favor, preencha todos os campos com informações válidas.' });
+      }
+
+      // Validação de formato CPF
+      const cpfRegex = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/;
+      if (!cpfRegex.test(cpf)) {
+        return res.status(400).json({ error: 'CPF deve estar no formato XXX.XXX.XXX-XX.' });
+      }
+
+      // Validação de formato telefone
+      const phoneRegex = /^\(\d{2}\)\s\d{4,5}-\d{4}$/;
+      if (!phoneRegex.test(phone)) {
+        return res.status(400).json({ error: 'Telefone deve estar no formato (XX) XXXXX-XXXX.' });
+      }
+
+      const pool = await getPool();
+
+      // Verifica se CPF já existe para outro usuário
+      const cpfCheck = await pool.request()
+        .input('cpf', sql.NVarChar, cpf)
+        .input('userId', sql.UniqueIdentifier, userId)
+        .query('SELECT Id FROM Users WHERE CPF = @cpf AND Id != @userId');
+      
+      if (cpfCheck.recordset.length > 0) {
+        return res.status(409).json({ error: 'CPF já cadastrado por outro usuário.' });
+      }
+
+      // Calcula idade
+      const birth = new Date(birthDate);
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) {
+        age--;
+      }
+
+      // Atualiza perfil do usuário
+      await pool.request()
+        .input('userId', sql.UniqueIdentifier, userId)
+        .input('cpf', sql.NVarChar, cpf)
+        .input('phone', sql.NVarChar, phone)
+        .input('birthDate', sql.Date, birthDate)
+        .input('age', sql.Int, age)
+        .input('gender', sql.NVarChar, gender)
+        .input('city', sql.NVarChar, city)
+        .input('address', sql.NVarChar, address)
+        .query(`
+          UPDATE Users 
+          SET CPF = @cpf, Phone = @phone, BirthDate = @birthDate, Age = @age, 
+              Gender = @gender, City = @city, Address = @address, UpdatedAt = GETDATE()
+          WHERE Id = @userId
+        `);
+
+      // Busca usuário atualizado
+      const updatedUser = await pool.request()
+        .input('userId', sql.UniqueIdentifier, userId)
+        .query(`
+          SELECT u.Id, u.Name, u.Email, u.CPF, u.Phone, CONVERT(varchar(10),u.BirthDate, 103) AS BirthDate, 
+                 u.Age, u.Gender, u.City, u.Address, u.Role, u.isDeveloper, ISNULL(c.Name, u.City) AS CityName
+          FROM Users u 
+          LEFT JOIN Cities c ON TRY_CAST(u.City AS uniqueidentifier) = c.Id 
+          WHERE u.Id = @userId
+        `);
+
+      const user = updatedUser.recordset[0];
+      
+      // Formatar data para DD/MM/YYYY
+      function formatarDataBR(data) {
+        if (!data) return '';
+        
+        let dateObj;
+        
+        // Verifica se já é um objeto Date
+        if (data instanceof Date) {
+          dateObj = data;
+        } else if (typeof data === 'string') {
+          // Verifica se a data está no formato YYYY-MM-DD
+          if (data.includes('-') && data.split('-').length === 3) {
+            const [ano, mes, dia] = data.split('-');
+            dateObj = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+          } else {
+            // Assume formato DD/MM/YYYY
+            const [dia, mes, ano] = data.split('/');
+            dateObj = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+          }
+        } else {
+          return '';
+        }
+        
+        // Formatar como DD/MM/YYYY
+        const dia = dateObj.getDate().toString().padStart(2, '0');
+        const mes = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+        const ano = dateObj.getFullYear();
+        
+        return `${dia}/${mes}/${ano}`;
+      }
+      
+      // Recalcular idade com a data atualizada
+      const currentBirthDate = new Date(birthDate);
+      const currentDate = new Date();
+      let currentAge = currentDate.getFullYear() - currentBirthDate.getFullYear();
+      if (currentDate.getMonth() < currentBirthDate.getMonth() || 
+          (currentDate.getMonth() === currentBirthDate.getMonth() && currentDate.getDate() < currentBirthDate.getDate())) {
+        currentAge--;
+      }
+      
+      const formattedBirthDate = formatarDataBR(birthDate); // Usar a data original do input
+      
+      res.json({
+        user: {
+          id: user.Id,
+          name: user.Name,
+          email: user.Email,
+          cpf: user.CPF,
+          phone: user.Phone,
+          birthDate: formattedBirthDate,
+          age: currentAge, // Usar idade recalculada
+          gender: user.Gender,
+          city: user.CityName || user.City, // Usar nome da cidade, fallback para ID
+          cityId: user.City, // Incluir ID da cidade também
+          address: user.Address,
+          role: user.Role,
+          isDeveloper: user.isDeveloper
+        }
+      });
+    } catch (error) {
+      console.error('Erro ao completar perfil:', error);
+      res.status(500).json({ error: 'Erro interno do servidor.' });
     }
   },
 
