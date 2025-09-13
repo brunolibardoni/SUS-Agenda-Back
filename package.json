@@ -4,8 +4,10 @@
   "description": "1. **SQL Server** instalado e rodando 2. **SQL Server Management Studio (SSMS)** ou **Azure Data Studio** 3. **Node.js** versão 16 ou superior",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"No tests yet\""
+
   },
   "repository": {
     "type": "git",
