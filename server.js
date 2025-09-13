@@ -9,7 +9,7 @@ const PORT = process.env.API_PORT|| 3002;
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'https://nice-moss-0eff7d51e.1.azurestaticapps.net'],
   credentials: true
 }));
 app.use(express.json());
