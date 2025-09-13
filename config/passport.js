@@ -27,7 +27,7 @@ async function checkProfileComplete(userId) {
               user.Address && user.Address !== 'TEMP_ADDRESS');
   } catch (error) {
     console.error('Error checking profile completion:', error);
-    return false;
+    return false; 
   }
 }
 
@@ -146,7 +146,7 @@ passport.serializeUser((user, done) => {
 // Deserialize user from session
 passport.deserializeUser(async (sessionUser, done) => {
   try {
-        
+
     // Fetch fresh user data from database
     const pool = await getPool();
     const result = await pool.request()
