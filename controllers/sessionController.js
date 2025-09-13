@@ -30,7 +30,7 @@ export async function login(req, res) {
 
     const result = await pool.request()
       .input('email', sql.NVarChar, email)
-      .query('SELECT u.Id, u.Name, u.Email, u.PasswordHash, u.Role, u.isDeveloper, c.Name AS City, u.CPF, u.Gender, u.Age, u.Phone, u.Address, CONVERT(varchar(10),u.BirthDate, 103) AS BirthDate FROM Users u INNER JOIN Cities c ON u.City = c.Id WHERE Email = @email');
+      .query('SELECT u.Id, u.Name, u.Email, u.PasswordHash, u.Role, u.isDeveloper, c.Name AS City, c.Id AS CityId, u.CPF, u.Gender, u.Age, u.Phone, u.Address, CONVERT(varchar(10),u.BirthDate, 103) AS BirthDate FROM Users u INNER JOIN Cities c ON u.City = c.Id WHERE Email = @email');
 
     if (result.recordset.length === 0) {
       // Falha: incrementa tentativas
@@ -59,9 +59,25 @@ export async function login(req, res) {
       sameSite: 'strict',
       maxAge: 1000 * 60 * 60 * 24 // 1 dia
     });
+
+    // Calcular Idade
+    function calcularIdadeBR(dataBR) {
+      if (!dataBR) return '-';
+      const [dia, mes, ano] = dataBR.split('/');
+      const nascimento = new Date(ano, mes - 1, dia);
+      const hoje = new Date();
+      let idade = hoje.getFullYear() - nascimento.getFullYear();
+      const aniversarioPassou =
+        hoje.getMonth() > nascimento.getMonth() ||
+        (hoje.getMonth() === nascimento.getMonth() && hoje.getDate() >= nascimento.getDate());
+      if (!aniversarioPassou) idade--;
+      return isNaN(idade) ? '-' : idade;
+    }
+    const age = calcularIdadeBR(user.BirthDate);
+
     res.json({ user: { id: user.Id, name: user.Name, email: user.Email, 
-      role: user.Role, isDeveloper: user.isDeveloper, city: user.City,
-      cpf: user.CPF, gender: user.Gender, age: user.Age, phone: user.Phone, 
+      role: user.Role, isDeveloper: user.isDeveloper, city: user.City, 
+      cityId: user.CityId, cpf: user.CPF, gender: user.Gender, age: age, phone: user.Phone, 
       address: user.Address, birthDate: user.BirthDate 
     } });
   } catch (error) {
