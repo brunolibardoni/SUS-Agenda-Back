@@ -54,7 +54,7 @@ app.use(
       secure: process.env.NODE_ENV === 'production', // HTTPS em produção
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 horas
-      sameSite: 'none'
+      sameSite: 'strict'
     }
   })
 );
