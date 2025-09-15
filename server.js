@@ -39,8 +39,21 @@ export function verifyToken(token) {
 }
 
 // Middleware
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['https://nice-moss-0eff7d51e.1.azurestaticapps.net'];
+console.log('🌐 CORS Allowed Origins:', allowedOrigins);
+
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://localhost:5173', 'http://localhost:3000', 'https://nice-moss-0eff7d51e.1.azurestaticapps.net'],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      return callback(null, true);
+    } else {
+      console.log('🚫 CORS blocked origin:', origin);
+      return callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -56,11 +69,22 @@ app.use((req, res, next) => {
   const authHeader = req.headers.authorization;
   const tokenFromCookie = req.cookies?.jwtToken;
 
+  console.log('🔍 JWT Middleware Debug:');
+  console.log('  - Auth Header:', authHeader ? 'Present' : 'Not present');
+  console.log('  - Cookie Token:', tokenFromCookie ? 'Present' : 'Not present');
+  console.log('  - User-Agent:', req.headers['user-agent']?.substring(0, 50));
+  console.log('  - Origin:', req.headers.origin);
+  console.log('  - Cookies keys:', Object.keys(req.cookies || {}));
+
   if (authHeader && authHeader.startsWith('Bearer ')) {
     req.jwtToken = authHeader.substring(7);
+    console.log('🔑 JWT token found in Authorization header');
   } else if (tokenFromCookie) {
     req.jwtToken = tokenFromCookie;
-  } 
+    console.log('🍪 JWT token found in cookie:', tokenFromCookie.substring(0, 20) + '...');
+  } else {
+    console.log('❌ No JWT token found in request');
+  }
 
   next();
 });

@@ -5,6 +5,11 @@ import { sql, getPool } from '../config/database.js';
 // Get current user session or JWT token
 export const getCurrentUserAuth = async (req, res) => {
   try {
+    console.log('🔍 /auth/me Debug:');
+    console.log('  - JWT Token in req:', req.jwtToken ? 'Present' : 'Not present');
+    console.log('  - Cookies:', Object.keys(req.cookies || {}));
+    console.log('  - Session:', req.session ? 'Present' : 'Not present');
+
     // First try to get user from session (existing method)
     let user = await getCurrentUser(req);
 
