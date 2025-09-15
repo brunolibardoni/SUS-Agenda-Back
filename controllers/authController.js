@@ -85,7 +85,8 @@ export const refreshToken = async (req, res) => {
       httpOnly: false,
       secure: true, // Always HTTPS in production
       maxAge: 24 * 60 * 60 * 1000,
-      sameSite: 'none' // Required for cross-site requests
+      sameSite: 'none', // Required for cross-site requests
+      domain: '.azurewebsites.net' // Allow subdomains
     });
 
     res.json({ token: newToken });

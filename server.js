@@ -59,6 +59,15 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(cookieParser()); // Parse cookies
+
+// Debug middleware to check cookie parsing
+app.use((req, res, next) => {
+  console.log('🍪 Cookie Parser Debug:');
+  console.log('  - Raw cookie header:', req.headers.cookie);
+  console.log('  - Parsed cookies:', req.cookies);
+  console.log('  - jwtToken in cookies:', req.cookies?.jwtToken ? 'Present' : 'Not present');
+  next();
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -75,6 +84,9 @@ app.use((req, res, next) => {
   console.log('  - User-Agent:', req.headers['user-agent']?.substring(0, 50));
   console.log('  - Origin:', req.headers.origin);
   console.log('  - Cookies keys:', Object.keys(req.cookies || {}));
+  console.log('  - Cookie raw header:', req.headers.cookie);
+  console.log('  - Request URL:', req.url);
+  console.log('  - Request method:', req.method);
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     req.jwtToken = authHeader.substring(7);
@@ -98,7 +110,8 @@ app.use(session({
     secure: true, // Always HTTPS in production
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'none' // Required for cross-site requests
+    sameSite: 'none', // Required for cross-site requests
+    domain: '.azurewebsites.net' // Allow subdomains
   }
 }));
 

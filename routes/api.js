@@ -35,7 +35,8 @@ router.get('/auth/google/callback',
         httpOnly: false, // Allow client-side access
         secure: true, // Always HTTPS in production
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        sameSite: 'none' // Required for cross-site requests
+        sameSite: 'none', // Required for cross-site requests
+        domain: '.azurewebsites.net' // Allow subdomains
       });
 
       // Check if user needs profile completion
