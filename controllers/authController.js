@@ -78,9 +78,9 @@ export const refreshToken = async (req, res) => {
     // Set new token in cookie
     res.cookie('jwtToken', newToken, {
       httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true, // Always HTTPS in production
       maxAge: 24 * 60 * 60 * 1000,
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+      sameSite: 'none' // Required for cross-site requests
     });
 
     res.json({ token: newToken });
