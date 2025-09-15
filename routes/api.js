@@ -33,9 +33,9 @@ router.get('/auth/google/callback',
       // Set JWT token in cookie for client-side storage
       res.cookie('jwtToken', token, {
         httpOnly: false, // Allow client-side access
-        secure: process.env.NODE_ENV === 'production',
+        secure: true, // Always HTTPS in production
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+        sameSite: 'none' // Required for cross-site requests
       });
 
       // Check if user needs profile completion
