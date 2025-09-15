@@ -4,11 +4,39 @@ import dotenv from 'dotenv';
 import passport from './config/passport.js';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
+import jwt from 'jsonwebtoken';
+
 dotenv.config();
 import apiRoutes from './routes/api.js';
 
 const app = express();
-const PORT = process.env.PORT|| 3002;
+const PORT = process.env.PORT || 3002;
+
+// JWT Configuration
+const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+
+// Function to generate JWT token
+export function generateToken(user) {
+  return jwt.sign(
+    {
+      id: user.id,
+      email: user.email,
+      role: user.role
+    },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN }
+  );
+}
+
+// Function to verify JWT token
+export function verifyToken(token) {
+  try {
+    return jwt.verify(token, JWT_SECRET);
+  } catch (error) {
+    return null;
+  }
+}
 
 // Middleware
 app.use(cors({
@@ -22,6 +50,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.set('trust proxy', 1);
+
+// JWT Middleware - Extract token from Authorization header or cookies
+app.use((req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const tokenFromCookie = req.cookies?.jwtToken;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    req.jwtToken = authHeader.substring(7);
+  } else if (tokenFromCookie) {
+    req.jwtToken = tokenFromCookie;
+  } 
+
+  next();
+});
 
 // Session middleware
 app.use(session({

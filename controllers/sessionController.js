@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import { sql, getPool } from '../config/database.js';
+import { generateToken } from '../server.js';
 
 // Sessões em memória (pode ser trocado por Redis ou banco)
 export const sessions = new Map();
@@ -52,12 +53,27 @@ export async function login(req, res) {
     // Gera ID de sessão seguro
     const sessionId = crypto.randomBytes(32).toString('hex');
     sessions.set(sessionId, { userId: user.Id, createdAt: Date.now() });
-    // Seta cookie seguro
+
+    // Seta cookie seguro para sessão
     res.cookie('sessionId', sessionId, {
       httpOnly: true,
       secure: true,
       sameSite: 'strict',
       maxAge: 1000 * 60 * 60 * 24 // 1 dia
+    });
+
+    // Gera e define token JWT
+    const jwtToken = generateToken({
+      id: user.Id,
+      email: user.Email,
+      role: user.Role
+    });
+
+    res.cookie('jwtToken', jwtToken, {
+      httpOnly: false, // Permite acesso pelo frontend
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 24 * 60 * 60 * 1000 // 24 horas
     });
 
     // Calcular Idade e formatar data
@@ -119,11 +135,24 @@ export async function login(req, res) {
     const age = calcularIdadeBR(user.BirthDate);
     const formattedBirthDate = formatarDataBR(user.BirthDate);
 
-    res.json({ user: { id: user.Id, name: user.Name, email: user.Email, 
-      role: user.Role, isDeveloper: user.isDeveloper, city: user.City, 
-      cityId: user.CityId, cpf: user.CPF, gender: user.Gender, age: age, phone: user.Phone, 
-      address: user.Address, birthDate: formattedBirthDate 
-    } });
+    res.json({
+      user: {
+        id: user.Id,
+        name: user.Name,
+        email: user.Email,
+        role: user.Role,
+        isDeveloper: user.isDeveloper,
+        city: user.City,
+        cityId: user.CityId,
+        cpf: user.CPF,
+        gender: user.Gender,
+        age: age,
+        phone: user.Phone,
+        address: user.Address,
+        birthDate: formattedBirthDate
+      },
+      token: jwtToken // Inclui o token JWT na resposta
+    });
   } catch (error) {
     console.error('Erro no login:', error);
     res.status(500).json({ error: 'Erro interno do servidor.' });
@@ -233,6 +262,9 @@ export function logout(req, res) {
       sessions.delete(sessionId);
       res.clearCookie('sessionId');
     }
+
+    // Clear JWT token cookie
+    res.clearCookie('jwtToken');
 
     // Clear Passport session and destroy Express session
     req.logout((err) => {

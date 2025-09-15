@@ -14,6 +14,8 @@ import notificationController from '../controllers/notificationController.js';
 import { getAvailableSlots } from '../controllers/availableSlotsController.js';
 
 import { login, logout, getCurrentUser } from '../controllers/sessionController.js';
+import { getCurrentUserAuth, refreshToken } from '../controllers/authController.js';
+import { generateToken } from '../server.js';
 import passport from '../config/passport.js';
 
 // Google OAuth routes
@@ -24,31 +26,38 @@ router.get('/auth/google',
 router.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/login' }),
   (req, res) => {
-    // Check if user needs profile completion
-    if (req.user && req.user.needsProfileCompletion) {
-      // Redirect to frontend with flag indicating profile completion needed
-      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}?needsProfileCompletion=true`);
-    } else {
-      // Successful authentication, redirect to frontend
-      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
+    try {
+      // Generate JWT token for the authenticated user
+      const token = generateToken(req.user);
+
+      // Set JWT token in cookie for client-side storage
+      res.cookie('jwtToken', token, {
+        httpOnly: false, // Allow client-side access
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+      });
+
+      // Check if user needs profile completion
+      if (req.user && req.user.needsProfileCompletion) {
+        // Redirect to frontend with flag indicating profile completion needed
+        res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}?needsProfileCompletion=true&token=${token}`);
+      } else {
+        // Successful authentication, redirect to frontend
+        res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}?token=${token}`);
+      }
+    } catch (error) {
+      console.error('Error in OAuth callback:', error);
+      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}?error=oauth_failed`);
     }
   }
 );
 
-// Get current user session
-router.get('/auth/me', async (req, res) => {
-  try {
-    const user = await getCurrentUser(req);
-    if (user) {
-      res.json({ user });
-    } else {
-      res.status(401).json({ error: 'Not authenticated' });
-    }
-  } catch (error) {
-    console.error('Error in /auth/me:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+// Get current user session or JWT token
+router.get('/auth/me', getCurrentUserAuth);
+
+// Refresh JWT token
+router.post('/auth/refresh', refreshToken);
 
 // Autenticação
 router.post('/login', login);
