@@ -63,6 +63,7 @@ CREATE TABLE Users (
     PasswordHash NVARCHAR(255) NOT NULL,
     Role NVARCHAR(20) DEFAULT 'patient' CHECK (Role IN ('patient', 'admin')),
     AuthProvider NVARCHAR(20) DEFAULT 'local' CHECK (AuthProvider IN ('local', 'google')),
+    NeedsProfileCompletion BIT NOT NULL DEFAULT 0,
     isDeveloper BIT NOT NULL DEFAULT 0,
     CreatedAt DATETIME2 DEFAULT GETDATE(),
     UpdatedAt DATETIME2 DEFAULT GETDATE()

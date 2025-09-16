@@ -290,7 +290,7 @@ const userController = {
 
       // Atualiza perfil do usuário
       await pool.request()
-        .input('userId', sql.UniqueIdentifier, userId)
+        .input('userId', sql.NVarChar, userId)
         .input('cpf', sql.NVarChar, cpf)
         .input('phone', sql.NVarChar, phone)
         .input('birthDate', sql.Date, birthDate)
@@ -301,19 +301,21 @@ const userController = {
         .query(`
           UPDATE Users 
           SET CPF = @cpf, Phone = @phone, BirthDate = @birthDate, Age = @age, 
-              Gender = @gender, City = @city, Address = @address, UpdatedAt = GETDATE()
-          WHERE Id = @userId
+              Gender = @gender, City = @city, Address = @address, 
+              NeedsProfileCompletion = 0, UpdatedAt = GETDATE()
+          WHERE Id = TRY_CAST(@userId AS uniqueidentifier)
         `);
 
       // Busca usuário atualizado
       const updatedUser = await pool.request()
-        .input('userId', sql.UniqueIdentifier, userId)
+        .input('userId', sql.NVarChar, userId)
         .query(`
           SELECT u.Id, u.Name, u.Email, u.CPF, u.Phone, CONVERT(varchar(10),u.BirthDate, 103) AS BirthDate, 
-                 u.Age, u.Gender, u.City, u.Address, u.Role, u.isDeveloper, ISNULL(c.Name, u.City) AS CityName
+                 u.Age, u.Gender, u.City, u.Address, u.Role, u.isDeveloper, u.NeedsProfileCompletion,
+                 ISNULL(c.Name, u.City) AS CityName
           FROM Users u 
           LEFT JOIN Cities c ON TRY_CAST(u.City AS uniqueidentifier) = c.Id 
-          WHERE u.Id = @userId
+          WHERE u.Id = TRY_CAST(@userId AS uniqueidentifier)
         `);
 
       const user = updatedUser.recordset[0];
@@ -374,7 +376,8 @@ const userController = {
           cityId: user.City, // Incluir ID da cidade também
           address: user.Address,
           role: user.Role,
-          isDeveloper: user.isDeveloper
+          isDeveloper: user.isDeveloper,
+          needsProfileCompletion: user.NeedsProfileCompletion === 1 // Converter BIT para boolean
         }
       });
     } catch (error) {

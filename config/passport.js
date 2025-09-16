@@ -96,12 +96,13 @@ async (accessToken, refreshToken, profile, done) => {
         .input('passwordHash', sql.NVarChar, defaultPassword)
         .input('role', sql.NVarChar, 'patient')
         .input('authProvider', sql.NVarChar, 'google')
+        .input('needsProfileCompletion', sql.Bit, 1) // Mark as needing profile completion
         .query(`
-          INSERT INTO Users (Name, Email, CPF, Phone, BirthDate, Age, Gender, City, Address, PasswordHash, Role, AuthProvider, CreatedAt, UpdatedAt)
-          VALUES (@name, @email, @cpf, @phone, @birthDate, @age, @gender, @city, @address, @passwordHash, @role, @authProvider, GETDATE(), GETDATE())
-          SELECT u.Id, u.Name, u.Email, u.CPF, u.Phone, CONVERT(varchar(10), u.BirthDate, 103) AS BirthDate, 
-                 u.Age, u.Gender, u.City, u.Address, u.Role, u.isDeveloper
-          FROM Users u 
+          INSERT INTO Users (Name, Email, CPF, Phone, BirthDate, Age, Gender, City, Address, PasswordHash, Role, AuthProvider, NeedsProfileCompletion, CreatedAt, UpdatedAt)
+          VALUES (@name, @email, @cpf, @phone, @birthDate, @age, @gender, @city, @address, @passwordHash, @role, @authProvider, @needsProfileCompletion, GETDATE(), GETDATE())
+          SELECT u.Id, u.Name, u.Email, u.CPF, u.Phone, CONVERT(varchar(10), u.BirthDate, 103) AS BirthDate,
+                 u.Age, u.Gender, u.City, u.Address, u.Role, u.isDeveloper, u.NeedsProfileCompletion
+          FROM Users u
           WHERE u.Email = @email
         `);
 

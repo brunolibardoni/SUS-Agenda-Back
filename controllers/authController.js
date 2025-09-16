@@ -52,7 +52,8 @@ export const getCurrentUserAuth = async (req, res) => {
               u.Address,
               u.Role,
               u.AuthProvider,
-              u.isDeveloper
+              u.isDeveloper,
+              u.NeedsProfileCompletion
             FROM Users u
             LEFT JOIN Cities c ON TRY_CAST(u.City AS uniqueidentifier) = c.Id
             WHERE u.Id = TRY_CAST(@userId AS uniqueidentifier) -- Use TRY_CAST to safely convert
@@ -102,7 +103,8 @@ export const getCurrentUserAuth = async (req, res) => {
               u.Address,
               u.Role,
               u.AuthProvider,
-              u.isDeveloper
+              u.isDeveloper,
+              u.NeedsProfileCompletion
             FROM Users u
             LEFT JOIN Cities c ON TRY_CAST(u.City AS uniqueidentifier) = c.Id
             WHERE u.Id = TRY_CAST(@userId AS uniqueidentifier) -- Use TRY_CAST to safely convert
