@@ -23,7 +23,7 @@ async function checkProfileComplete(userId) {
               user.Phone && user.Phone !== 'TEMP_PHONE' &&
               user.Gender &&
               user.BirthDate && user.BirthDate.toISOString().split('T')[0] !== '1900-01-01' &&
-              user.City && user.City !== 'ZB762E6C-C21D-4FXA-BC50-AE79264A8567' &&
+              user.City && user.City !== '8D02A651-7CD1-4723-A5F1-B38873ADD07E' &&
               user.Address && user.Address !== 'TEMP_ADDRESS');
   } catch (error) {
     console.error('Error checking profile completion:', error);
@@ -91,7 +91,7 @@ async (accessToken, refreshToken, profile, done) => {
         .input('birthDate', sql.Date, new Date('1900-01-01')) // Temporary birth date - will be replaced
         .input('age', sql.Int, 0) // Temporary age - will be replaced
         .input('gender', sql.NVarChar, 'outro') // Default gender - can stay or be changed
-        .input('city', sql.NVarChar, 'ZB762E6C-C21D-4FXA-BC50-AE79264A8567') // Temporary city - will be replaced
+        .input('city', sql.NVarChar, '8D02A651-7CD1-4723-A5F1-B38873ADD07E') // Temporary city - will be replaced
         .input('address', sql.NVarChar, 'TEMP_ADDRESS') // Temporary address - will be replaced
         .input('passwordHash', sql.NVarChar, defaultPassword)
         .input('role', sql.NVarChar, 'patient')
