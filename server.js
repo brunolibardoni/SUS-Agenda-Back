@@ -111,6 +111,7 @@ app.use((req, res, next) => {
   console.log('  - Origin:', req.headers.origin);
   console.log('  - Cookies keys:', Object.keys(req.cookies || {}));
 
+  // Priority: Authorization header > Cookie (header is more reliable for mobile/incognito)
   if (authHeader && authHeader.startsWith('Bearer ')) {
     req.jwtToken = authHeader.substring(7);
     console.log('🔑 JWT token found in Authorization header');

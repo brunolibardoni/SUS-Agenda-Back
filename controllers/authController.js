@@ -2,6 +2,12 @@ import { getCurrentUser } from '../controllers/sessionController.js';
 import { generateToken, verifyToken } from '../server.js';
 import { sql, getPool } from '../config/database.js';
 
+// Helper function to validate GUID format
+function isValidGUID(str) {
+  const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return guidRegex.test(str);
+}
+
 // Get current user session or JWT token
 export const getCurrentUserAuth = async (req, res) => {
   try {
@@ -20,10 +26,17 @@ export const getCurrentUserAuth = async (req, res) => {
       const decoded = verifyToken(req.jwtToken);
       if (decoded) {
         console.log('✅ JWT token from cookie decoded successfully:', decoded.id);
+
+        // Validate userId before database query
+        if (!decoded.id || !isValidGUID(decoded.id)) {
+          console.log('❌ Invalid userId from JWT cookie:', decoded.id);
+          return res.status(401).json({ error: 'Token inválido ou ausente' });
+        }
+
         // Fetch complete user data from database
         const pool = await getPool();
         const result = await pool.request()
-          .input('userId', sql.UniqueIdentifier, decoded.id)
+          .input('userId', sql.NVarChar, decoded.id) // Changed to NVarChar to avoid conversion issues
           .query(`
             SELECT
               u.Id,
@@ -42,14 +55,14 @@ export const getCurrentUserAuth = async (req, res) => {
               u.isDeveloper
             FROM Users u
             LEFT JOIN Cities c ON TRY_CAST(u.City AS uniqueidentifier) = c.Id
-            WHERE u.Id = @userId
+            WHERE u.Id = TRY_CAST(@userId AS uniqueidentifier) -- Use TRY_CAST to safely convert
           `);
 
         if (result.recordset.length > 0) {
           user = result.recordset[0];
           console.log('✅ User found from JWT cookie:', user.Id);
         } else {
-          console.log('❌ User not found in database for JWT cookie');
+          console.log('❌ User not found in database for JWT cookie - userId:', decoded.id);
         }
       } else {
         console.log('❌ JWT token from cookie is invalid');
@@ -63,10 +76,17 @@ export const getCurrentUserAuth = async (req, res) => {
       const decoded = verifyToken(token);
       if (decoded) {
         console.log('✅ JWT token from header decoded successfully:', decoded.id);
+
+        // Validate userId before database query
+        if (!decoded.id || !isValidGUID(decoded.id)) {
+          console.log('❌ Invalid userId from JWT header:', decoded.id);
+          return res.status(401).json({ error: 'Token inválido ou ausente' });
+        }
+
         // Fetch complete user data from database
         const pool = await getPool();
         const result = await pool.request()
-          .input('userId', sql.UniqueIdentifier, decoded.id)
+          .input('userId', sql.NVarChar, decoded.id) // Changed to NVarChar to avoid conversion issues
           .query(`
             SELECT
               u.Id,
@@ -85,14 +105,14 @@ export const getCurrentUserAuth = async (req, res) => {
               u.isDeveloper
             FROM Users u
             LEFT JOIN Cities c ON TRY_CAST(u.City AS uniqueidentifier) = c.Id
-            WHERE u.Id = @userId
+            WHERE u.Id = TRY_CAST(@userId AS uniqueidentifier) -- Use TRY_CAST to safely convert
           `);
 
         if (result.recordset.length > 0) {
           user = result.recordset[0];
           console.log('✅ User found from JWT header:', user.Id);
         } else {
-          console.log('❌ User not found in database for JWT header');
+          console.log('❌ User not found in database for JWT header - userId:', decoded.id);
         }
       } else {
         console.log('❌ JWT token from header is invalid');

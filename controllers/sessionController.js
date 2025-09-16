@@ -3,6 +3,12 @@ import bcrypt from 'bcrypt';
 import { sql, getPool } from '../config/database.js';
 import { generateToken } from '../server.js';
 
+// Helper function to validate GUID format
+function isValidGUID(str) {
+  const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return guidRegex.test(str);
+}
+
 // Sessões em memória (pode ser trocado por Redis ou banco)
 export const sessions = new Map();
 
@@ -213,16 +219,22 @@ export async function getCurrentUser(req) {
 
   // Get user data from database
   try {
+    // Validate session userId before database query
+    if (!session.userId || !isValidGUID(session.userId)) {
+      console.log('❌ Invalid session userId:', session.userId);
+      return null;
+    }
+
     const pool = await getPool();
     const result = await pool.request()
-      .input('userId', sql.UniqueIdentifier, session.userId)
+      .input('userId', sql.NVarChar, session.userId) // Changed to NVarChar to avoid conversion issues
       .query(`
         SELECT u.Id, u.Name, u.Email, u.CPF, u.Phone, CONVERT(varchar(10),u.BirthDate, 103) AS BirthDate,
                u.Age, u.Gender, u.City, u.Address, u.Role, u.isDeveloper, u.AuthProvider,
                ISNULL(c.Name, u.City) AS CityName
         FROM Users u
         LEFT JOIN Cities c ON TRY_CAST(u.City AS uniqueidentifier) = c.Id
-        WHERE u.Id = @userId
+        WHERE u.Id = TRY_CAST(@userId AS uniqueidentifier) -- Use TRY_CAST to safely convert
       `);
 
     if (result.recordset.length === 0) {
