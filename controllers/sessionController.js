@@ -221,7 +221,6 @@ export async function getCurrentUser(req) {
   try {
     // Validate session userId before database query
     if (!session.userId || !isValidGUID(session.userId)) {
-      console.log('❌ Invalid session userId:', session.userId);
       return null;
     }
 

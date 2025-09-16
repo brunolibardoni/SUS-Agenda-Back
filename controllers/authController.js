@@ -11,25 +11,17 @@ function isValidGUID(str) {
 // Get current user session or JWT token
 export const getCurrentUserAuth = async (req, res) => {
   try {
-    console.log('🔍 /auth/me Debug:');
-    console.log('  - JWT Token in req:', req.jwtToken ? 'Present' : 'Not present');
-    console.log('  - Authorization header:', req.headers.authorization ? 'Present' : 'Not present');
-    console.log('  - Cookies:', Object.keys(req.cookies || {}));
-    console.log('  - Session:', req.session ? 'Present' : 'Not present');
 
     // First try to get user from session (existing method)
     let user = await getCurrentUser(req);
 
     // If no session user, try JWT token from cookie
     if (!user && req.jwtToken) {
-      console.log('🔍 Trying JWT token from cookie...');
       const decoded = verifyToken(req.jwtToken);
       if (decoded) {
-        console.log('✅ JWT token from cookie decoded successfully:', decoded.id);
 
         // Validate userId before database query
         if (!decoded.id || !isValidGUID(decoded.id)) {
-          console.log('❌ Invalid userId from JWT cookie:', decoded.id);
           return res.status(401).json({ error: 'Token inválido ou ausente' });
         }
 
@@ -61,27 +53,18 @@ export const getCurrentUserAuth = async (req, res) => {
 
         if (result.recordset.length > 0) {
           user = result.recordset[0];
-          console.log('✅ User found from JWT cookie:', user.Id);
-          console.log('🎯 Raw NeedsProfileCompletion from DB:', user.NeedsProfileCompletion, typeof user.NeedsProfileCompletion);
-        } else {
-          console.log('❌ User not found in database for JWT cookie - userId:', decoded.id);
-        }
-      } else {
-        console.log('❌ JWT token from cookie is invalid');
+        } 
       }
     }
 
     // If no user from session or cookie, try Authorization header
     if (!user && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-      console.log('🔍 Trying JWT token from Authorization header...');
       const token = req.headers.authorization.substring(7);
       const decoded = verifyToken(token);
       if (decoded) {
-        console.log('✅ JWT token from header decoded successfully:', decoded.id);
 
         // Validate userId before database query
         if (!decoded.id || !isValidGUID(decoded.id)) {
-          console.log('❌ Invalid userId from JWT header:', decoded.id);
           return res.status(401).json({ error: 'Token inválido ou ausente' });
         }
 
@@ -113,28 +96,17 @@ export const getCurrentUserAuth = async (req, res) => {
 
         if (result.recordset.length > 0) {
           user = result.recordset[0];
-          console.log('✅ User found from JWT header:', user.Id);
-          console.log('🎯 Raw NeedsProfileCompletion from DB:', user.NeedsProfileCompletion, typeof user.NeedsProfileCompletion);
-        } else {
-          console.log('❌ User not found in database for JWT header - userId:', decoded.id);
         }
-      } else {
-        console.log('❌ JWT token from header is invalid');
-      }
+      } 
     }
 
     if (user) {
-      console.log('✅ Authentication successful for user:', user.Id);
-      console.log('🎯 NeedsProfileCompletion from DB:', user.NeedsProfileCompletion);
       
       // Ensure NeedsProfileCompletion is a boolean
       user.needsProfileCompletion = Boolean(user.NeedsProfileCompletion);
-      console.log('🎯 Converted needsProfileCompletion:', user.needsProfileCompletion, typeof user.needsProfileCompletion);
       
-      console.log('🎯 Full user object being returned:', user);
       res.json({ user });
     } else {
-      console.log('❌ No user found - authentication failed');
       res.status(401).json({ error: 'Not authenticated' });
     }
   } catch (error) {

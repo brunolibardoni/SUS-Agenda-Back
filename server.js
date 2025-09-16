@@ -16,10 +16,6 @@ const PORT = process.env.PORT || 3002;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
-console.log('🔐 JWT Configuration:');
-console.log('  - JWT_SECRET:', JWT_SECRET ? 'Present' : 'Missing');
-console.log('  - JWT_EXPIRES_IN:', JWT_EXPIRES_IN);
-
 // Function to generate JWT token
 export function generateToken(user) {
   return jwt.sign(
@@ -37,34 +33,23 @@ export function generateToken(user) {
 export function verifyToken(token) {
   try {
     if (!token) {
-      console.log('❌ JWT token is null or undefined');
       return null;
     }
 
     if (typeof token !== 'string') {
-      console.log('❌ JWT token is not a string:', typeof token);
       return null;
     }
 
     const decoded = jwt.verify(token, JWT_SECRET);
-    console.log('✅ JWT token verified successfully');
     return decoded;
   } catch (error) {
-    console.log('❌ JWT token verification failed:', error.message);
-    if (error.name === 'TokenExpiredError') {
-      console.log('⏰ Token has expired');
-    } else if (error.name === 'JsonWebTokenError') {
-      console.log('🔐 Invalid token signature or format');
-    } else if (error.name === 'NotBeforeError') {
-      console.log('⏳ Token not active yet');
-    }
+    console.error('Erro ao verificar token JWT:', error);
     return null;
   }
 }
 
 // Middleware
 const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['https://nice-moss-0eff7d51e.1.azurestaticapps.net'];
-console.log('🌐 CORS Allowed Origins:', allowedOrigins);
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -74,7 +59,6 @@ app.use(cors({
     if (allowedOrigins.indexOf(origin) !== -1) {
       return callback(null, true);
     } else {
-      console.log('🚫 CORS blocked origin:', origin);
       return callback(new Error('Not allowed by CORS'));
     }
   },
@@ -104,20 +88,11 @@ app.use((req, res, next) => {
   const authHeader = req.headers.authorization;
   const tokenFromCookie = req.cookies?.jwtToken;
 
-  console.log('🔍 JWT Middleware Debug:');
-  console.log('  - Auth Header:', authHeader ? 'Present' : 'Not present');
-  console.log('  - Cookie Token:', tokenFromCookie ? 'Present' : 'Not present');
-  console.log('  - User-Agent:', req.headers['user-agent']?.substring(0, 50));
-  console.log('  - Origin:', req.headers.origin);
-  console.log('  - Cookies keys:', Object.keys(req.cookies || {}));
-
   // Priority: Authorization header > Cookie (header is more reliable for mobile/incognito)
   if (authHeader && authHeader.startsWith('Bearer ')) {
     req.jwtToken = authHeader.substring(7);
-    console.log('🔑 JWT token found in Authorization header');
   } else if (tokenFromCookie) {
     req.jwtToken = tokenFromCookie;
-    console.log('🍪 JWT token found in cookie:', tokenFromCookie.substring(0, 20) + '...');
   } else {
     console.log('❌ No JWT token found in request');
   }

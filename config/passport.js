@@ -228,7 +228,7 @@ passport.deserializeUser(async (sessionUser, done) => {
     
     const age = calcularIdadeBR(freshUser.BirthDate);
     const formattedBirthDate = formatarDataBR(freshUser.BirthDate);
-
+    
     // Return fresh user data with updated profile completion status
     const updatedUser = {
       id: freshUser.Id,
