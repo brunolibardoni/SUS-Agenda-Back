@@ -62,6 +62,7 @@ export const getCurrentUserAuth = async (req, res) => {
         if (result.recordset.length > 0) {
           user = result.recordset[0];
           console.log('✅ User found from JWT cookie:', user.Id);
+          console.log('🎯 Raw NeedsProfileCompletion from DB:', user.NeedsProfileCompletion, typeof user.NeedsProfileCompletion);
         } else {
           console.log('❌ User not found in database for JWT cookie - userId:', decoded.id);
         }
@@ -113,6 +114,7 @@ export const getCurrentUserAuth = async (req, res) => {
         if (result.recordset.length > 0) {
           user = result.recordset[0];
           console.log('✅ User found from JWT header:', user.Id);
+          console.log('🎯 Raw NeedsProfileCompletion from DB:', user.NeedsProfileCompletion, typeof user.NeedsProfileCompletion);
         } else {
           console.log('❌ User not found in database for JWT header - userId:', decoded.id);
         }
@@ -123,6 +125,13 @@ export const getCurrentUserAuth = async (req, res) => {
 
     if (user) {
       console.log('✅ Authentication successful for user:', user.Id);
+      console.log('🎯 NeedsProfileCompletion from DB:', user.NeedsProfileCompletion);
+      
+      // Ensure NeedsProfileCompletion is a boolean
+      user.needsProfileCompletion = Boolean(user.NeedsProfileCompletion);
+      console.log('🎯 Converted needsProfileCompletion:', user.needsProfileCompletion, typeof user.needsProfileCompletion);
+      
+      console.log('🎯 Full user object being returned:', user);
       res.json({ user });
     } else {
       console.log('❌ No user found - authentication failed');
