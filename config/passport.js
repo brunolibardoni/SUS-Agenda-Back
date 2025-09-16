@@ -91,7 +91,7 @@ async (accessToken, refreshToken, profile, done) => {
         .input('birthDate', sql.Date, new Date('1900-01-01')) // Temporary birth date - will be replaced
         .input('age', sql.Int, 0) // Temporary age - will be replaced
         .input('gender', sql.NVarChar, 'outro') // Default gender - can stay or be changed
-        .input('city', sql.NVarChar, 'TEMP_CITY') // Temporary city - will be replaced
+        .input('city', sql.NVarChar, 'EE79C69C-45FE-4283-A136-432F9F981A40') // Temporary city - will be replaced
         .input('address', sql.NVarChar, 'TEMP_ADDRESS') // Temporary address - will be replaced
         .input('passwordHash', sql.NVarChar, defaultPassword)
         .input('role', sql.NVarChar, 'patient')
