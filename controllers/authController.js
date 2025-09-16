@@ -7,13 +7,14 @@ export const getCurrentUserAuth = async (req, res) => {
   try {
     console.log('🔍 /auth/me Debug:');
     console.log('  - JWT Token in req:', req.jwtToken ? 'Present' : 'Not present');
+    console.log('  - Authorization header:', req.headers.authorization ? 'Present' : 'Not present');
     console.log('  - Cookies:', Object.keys(req.cookies || {}));
     console.log('  - Session:', req.session ? 'Present' : 'Not present');
 
     // First try to get user from session (existing method)
     let user = await getCurrentUser(req);
 
-    // If no session user, try JWT token
+    // If no session user, try JWT token from cookie
     if (!user && req.jwtToken) {
       const decoded = verifyToken(req.jwtToken);
       if (decoded) {
@@ -44,8 +45,44 @@ export const getCurrentUserAuth = async (req, res) => {
 
         if (result.recordset.length > 0) {
           user = result.recordset[0];
-        } 
-      } 
+        }
+      }
+    }
+
+    // If no user from session or cookie, try Authorization header
+    if (!user && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+      const token = req.headers.authorization.substring(7);
+      const decoded = verifyToken(token);
+      if (decoded) {
+        // Fetch complete user data from database
+        const pool = await getPool();
+        const result = await pool.request()
+          .input('userId', sql.UniqueIdentifier, decoded.id)
+          .query(`
+            SELECT
+              u.Id,
+              u.Name,
+              u.Email,
+              u.CPF,
+              u.Phone,
+              CONVERT(varchar(10), u.BirthDate, 103) AS BirthDate,
+              u.Age,
+              u.Gender,
+              ISNULL(c.Name, u.City) AS City,
+              ISNULL(c.Id, u.City) AS CityId,
+              u.Address,
+              u.Role,
+              u.AuthProvider,
+              u.isDeveloper
+            FROM Users u
+            LEFT JOIN Cities c ON TRY_CAST(u.City AS uniqueidentifier) = c.Id
+            WHERE u.Id = @userId
+          `);
+
+        if (result.recordset.length > 0) {
+          user = result.recordset[0];
+        }
+      }
     }
 
     if (user) {
