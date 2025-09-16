@@ -236,7 +236,12 @@ const userController = {
   // Completar perfil do usuário (para usuários do Google OAuth)
   async completeProfile(req, res) {
     try {
+      console.log('🎯 completeProfile called');
+      console.log('📋 Request body:', req.body);
+      console.log('👤 User from req.user:', req.user);
+
       const userId = req.user.id; // From Passport.js authenticated user
+      console.log('🆔 User ID:', userId);
       const {
         cpf,
         phone,
@@ -269,16 +274,20 @@ const userController = {
       }
 
       const pool = await getPool();
+      console.log('🔗 Database connection established');
 
       // Verifica se CPF já existe para outro usuário
+      console.log('🔍 Checking if CPF exists for another user...');
       const cpfCheck = await pool.request()
         .input('cpf', sql.NVarChar, cpf)
         .input('userId', sql.UniqueIdentifier, userId)
         .query('SELECT Id FROM Users WHERE CPF = @cpf AND Id != @userId');
       
       if (cpfCheck.recordset.length > 0) {
+        console.log('❌ CPF already exists for another user');
         return res.status(409).json({ error: 'CPF já cadastrado por outro usuário.' });
       }
+      console.log('✅ CPF check passed');
 
       // Calcula idade
       const birth = new Date(birthDate);
@@ -289,6 +298,7 @@ const userController = {
       }
 
       // Atualiza perfil do usuário
+      console.log('📝 Updating user profile...');
       await pool.request()
         .input('userId', sql.NVarChar, userId)
         .input('cpf', sql.NVarChar, cpf)
@@ -305,8 +315,10 @@ const userController = {
               NeedsProfileCompletion = 0, UpdatedAt = GETDATE()
           WHERE Id = TRY_CAST(@userId AS uniqueidentifier)
         `);
+      console.log('✅ Profile updated successfully');
 
       // Busca usuário atualizado
+      console.log('🔍 Fetching updated user data...');
       const updatedUser = await pool.request()
         .input('userId', sql.NVarChar, userId)
         .query(`
@@ -319,6 +331,7 @@ const userController = {
         `);
 
       const user = updatedUser.recordset[0];
+      console.log('✅ Updated user fetched:', user.Id, 'NeedsProfileCompletion:', user.NeedsProfileCompletion);
       
       // Formatar data para DD/MM/YYYY
       function formatarDataBR(data) {
@@ -362,6 +375,7 @@ const userController = {
       
       const formattedBirthDate = formatarDataBR(birthDate); // Usar a data original do input
       
+      console.log('📤 Sending response...');
       res.json({
         user: {
           id: user.Id,
@@ -380,6 +394,7 @@ const userController = {
           needsProfileCompletion: user.NeedsProfileCompletion === 1 // Converter BIT para boolean
         }
       });
+      console.log('✅ Response sent successfully');
     } catch (error) {
       console.error('Erro ao completar perfil:', error);
       res.status(500).json({ error: 'Erro interno do servidor.' });

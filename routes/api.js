@@ -2,6 +2,8 @@
 import express from 'express';
 const router = express.Router();
 
+import { authenticateUser } from '../config/authMiddleware.js';
+
 import cityController from '../controllers/cityController.js';
 import healthPostController from '../controllers/healthPostController.js';
 import serviceController from '../controllers/serviceController.js';
@@ -104,11 +106,7 @@ router.put('/contact/:id', contactController.updateContact);
 
 // Rotas de Usuários
 router.put('/users/:userId/password', userController.updatePassword);
-router.put('/users/complete-profile', (req, res, next) => {
-  if (req.isAuthenticated()) {
-    next();
-  }
-}, userController.completeProfile);
+router.put('/users/complete-profile', authenticateUser, userController.completeProfile);
 router.get('/users/:userId/notifications', userController.getUserNotifications);
 router.put('/notifications/:notificationId/read', userController.markNotificationAsRead);
 router.put('/users/:userId/notifications/read-all', userController.markAllNotificationsAsRead);
