@@ -23,7 +23,7 @@ async function checkProfileComplete(userId) {
               user.Phone && user.Phone !== 'TEMP_PHONE' &&
               user.Gender &&
               user.BirthDate && user.BirthDate.toISOString().split('T')[0] !== '1900-01-01' &&
-              user.City && user.City !== 'TEMP_CITY' &&
+              user.City && user.City !== 'EE79C69C-45FE-4283-A136-432F9F981A40' &&
               user.Address && user.Address !== 'TEMP_ADDRESS');
   } catch (error) {
     console.error('Error checking profile completion:', error);
