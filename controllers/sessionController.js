@@ -263,8 +263,13 @@ export function logout(req, res) {
       res.clearCookie('sessionId');
     }
 
-    // Clear JWT token cookie
-    res.clearCookie('jwtToken');
+    // Clear JWT token cookie with same options as when set
+    res.clearCookie('jwtToken', {
+      httpOnly: false,
+      secure: true,
+      sameSite: 'none',
+      path: '/'
+    });
 
     // Clear Passport session and destroy Express session
     req.logout((err) => {
@@ -279,16 +284,32 @@ export function logout(req, res) {
             console.error('Error destroying session:', sessionErr);
           }
 
-          // Clear all session-related cookies
-          res.clearCookie('connect.sid'); // Express session cookie
-          res.clearCookie('sessionId'); // Custom session cookie
+          // Clear all session-related cookies with proper options
+          res.clearCookie('connect.sid', {
+            path: '/',
+            secure: true,
+            sameSite: 'none'
+          });
+          res.clearCookie('sessionId', {
+            path: '/',
+            secure: true,
+            sameSite: 'none'
+          });
 
           res.json({ message: 'Logout realizado com sucesso.' });
         });
       } else {
-        // Clear all session-related cookies
-        res.clearCookie('connect.sid'); // Express session cookie
-        res.clearCookie('sessionId'); // Custom session cookie
+        // Clear all session-related cookies with proper options
+        res.clearCookie('connect.sid', {
+          path: '/',
+          secure: true,
+          sameSite: 'none'
+        });
+        res.clearCookie('sessionId', {
+          path: '/',
+          secure: true,
+          sameSite: 'none'
+        });
 
         res.json({ message: 'Logout realizado com sucesso.' });
       }
