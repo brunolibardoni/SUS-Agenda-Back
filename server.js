@@ -16,6 +16,10 @@ const PORT = process.env.PORT || 3002;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
+console.log('🔐 JWT Configuration:');
+console.log('  - JWT_SECRET:', JWT_SECRET ? 'Present' : 'Missing');
+console.log('  - JWT_EXPIRES_IN:', JWT_EXPIRES_IN);
+
 // Function to generate JWT token
 export function generateToken(user) {
   return jwt.sign(
@@ -32,8 +36,28 @@ export function generateToken(user) {
 // Function to verify JWT token
 export function verifyToken(token) {
   try {
-    return jwt.verify(token, JWT_SECRET);
+    if (!token) {
+      console.log('❌ JWT token is null or undefined');
+      return null;
+    }
+
+    if (typeof token !== 'string') {
+      console.log('❌ JWT token is not a string:', typeof token);
+      return null;
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    console.log('✅ JWT token verified successfully');
+    return decoded;
   } catch (error) {
+    console.log('❌ JWT token verification failed:', error.message);
+    if (error.name === 'TokenExpiredError') {
+      console.log('⏰ Token has expired');
+    } else if (error.name === 'JsonWebTokenError') {
+      console.log('🔐 Invalid token signature or format');
+    } else if (error.name === 'NotBeforeError') {
+      console.log('⏳ Token not active yet');
+    }
     return null;
   }
 }
