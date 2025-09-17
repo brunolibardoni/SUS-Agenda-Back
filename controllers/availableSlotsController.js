@@ -16,11 +16,11 @@ export async function getAvailableSlots(req, res) {
         .query(`
            SELECT 
                 st.Id,
-                CONVERT(VARCHAR(5), st.TimeSlot, 108) AS TimeSlot,  -- horário do template
+                CONVERT(VARCHAR(5), st.TimeSlot, 108) AS TimeSlot,
                 st.SlotsPerTime,
                 s.Requirements AS ServiceDescription,
-                ISNULL(b.TotalPatients, 0) AS TotalPatients,        -- pacientes já agendados
-                st.SlotsPerTime - ISNULL(b.TotalPatients, 0) AS SlotsAvailable -- restantes
+                ISNULL(b.TotalPatients, 0) AS TotalPatients,
+                st.SlotsPerTime - ISNULL(b.TotalPatients, 0) AS SlotsAvailable
             FROM ScheduleTemplates st
             INNER JOIN Services s 
                 ON st.ServiceId = s.Id
@@ -30,16 +30,21 @@ export async function getAvailableSlots(req, res) {
                     SUM(b.PatientCount) AS TotalPatients
                 FROM Bookings b
                 WHERE b.HealthPostId = @healthPostId
-                AND b.ServiceId = @serviceId
-                AND b.Date = @date
-                AND b.Status = 'confirmed'
+                  AND b.ServiceId = @serviceId
+                  AND b.Date = @date
+                  AND b.Status = 'confirmed'
                 GROUP BY CONVERT(VARCHAR(5), b.Time, 108)
             ) b 
                 ON CONVERT(VARCHAR(5), st.TimeSlot, 108) = b.TimeSlot
             WHERE st.HealthPostId = @healthPostId
-            AND st.ServiceId = @serviceId
-            AND @date BETWEEN st.StartDate AND st.EndDate
-            ORDER BY TimeSlot
+              AND st.ServiceId = @serviceId
+              AND @date BETWEEN st.StartDate AND st.EndDate
+              AND EXISTS (
+                  SELECT 1
+                  FROM OPENJSON(st.DaysOfWeek) AS d
+                  WHERE d.value = CAST(((DATEPART(WEEKDAY, @date) + @@DATEFIRST - 1) % 7) AS NVARCHAR)
+              )
+            ORDER BY TimeSlot;
         `);
 
     const templates = templatesResult.recordset;
